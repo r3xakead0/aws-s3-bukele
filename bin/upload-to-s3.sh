@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Upload a compressed archive to Amazon S3.
+
 set -Eeuo pipefail
 
 readonly PROGRAM_NAME="${0##*/}"

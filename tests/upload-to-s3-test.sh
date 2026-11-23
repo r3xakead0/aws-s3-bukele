@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly PROJECT_ROOT
-readonly SCRIPT_UNDER_TEST="${PROJECT_ROOT}/bin/upload-to-s3"
+readonly SCRIPT_UNDER_TEST="${PROJECT_ROOT}/bin/upload-to-s3.sh"
 TEST_TMP_DIR="$(mktemp -d)"
 readonly TEST_TMP_DIR
 readonly MOCK_BIN_DIR="${TEST_TMP_DIR}/bin"
@@ -93,7 +93,7 @@ assert_log_contains() {
 
 run_command "$SCRIPT_UNDER_TEST" --help
 assert_status 0
-assert_output_contains "Usage: upload-to-s3"
+assert_output_contains "Usage: upload-to-s3.sh"
 
 run_command env \
     PATH="${MOCK_BIN_DIR}:/usr/bin:/bin" \

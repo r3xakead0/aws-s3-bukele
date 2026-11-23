@@ -1,5 +1,7 @@
 #requires -Version 5.1
 
+# Integration tests for the PowerShell implementation.
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 

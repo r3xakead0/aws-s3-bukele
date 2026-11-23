@@ -28,7 +28,7 @@ A cross-platform command-line utility for uploading compressed files to Amazon S
 ```text
 .
 ├── .github/workflows/ci.yml  # Automated lint and test workflow
-├── bin/upload-to-s3          # Bash command-line application
+├── bin/upload-to-s3.sh       # Bash command-line application
 ├── bin/upload-to-s3.ps1      # PowerShell command-line application
 ├── tests/                    # Bash and PowerShell integration tests
 ├── .editorconfig             # Shared editor formatting rules
@@ -77,7 +77,7 @@ cd aws-s3-bukele
 Upload an archive with Bash:
 
 ```bash
-./bin/upload-to-s3 \
+./bin/upload-to-s3.sh \
   --bucket company-archives \
   --profile production \
   --prefix backups \
@@ -129,7 +129,7 @@ The CLI does not load `.env` implicitly. Either export it in the current shell:
 set -a
 source .env
 set +a
-./bin/upload-to-s3 /path/to/photos-2026.zip
+./bin/upload-to-s3.sh /path/to/photos-2026.zip
 ```
 
 Or use the Make target, which loads `.env` when the file exists:
@@ -169,7 +169,7 @@ Supported values are:
 For example:
 
 ```bash
-./bin/upload-to-s3 \
+./bin/upload-to-s3.sh \
   --bucket company-archives \
   --storage-class STANDARD_IA \
   /path/to/photos-2026.zip
@@ -191,7 +191,7 @@ Choose a class according to the access pattern, retrieval requirements, minimum 
 ### Bash
 
 ```text
-Usage: upload-to-s3 [options] <compressed-file>
+Usage: upload-to-s3.sh [options] <compressed-file>
 
 Options:
   -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
@@ -205,7 +205,7 @@ Options:
 Display the current help directly from the executable:
 
 ```bash
-./bin/upload-to-s3 --help
+./bin/upload-to-s3.sh --help
 ```
 
 ### PowerShell
@@ -275,7 +275,7 @@ make test-powershell
 Or run them directly from PowerShell:
 
 ```powershell
-.\tests\upload-to-s3-powershell-test.ps1
+.\tests\upload-to-s3-test.ps1
 ```
 
 Run PSScriptAnalyzer:
@@ -309,7 +309,7 @@ Pass `--bucket` or set `S3_BUCKET` before running the command.
 Check the archive path. Quote paths that contain spaces:
 
 ```bash
-./bin/upload-to-s3 --bucket company-archives "/path/to/My Archive.zip"
+./bin/upload-to-s3.sh --bucket company-archives "/path/to/My Archive.zip"
 ```
 
 ```powershell

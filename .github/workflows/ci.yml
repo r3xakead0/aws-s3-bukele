@@ -1,6 +1,5 @@
 # Continuous integration workflow for Bash and PowerShell.
 name: CI
-description: Run linting and integration tests for Bash and PowerShell scripts.
 
 on:
   push:
@@ -10,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  bash-lint:
-    name: Bash lint
+  bash:
+    name: Bash lint and tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -26,15 +25,6 @@ jobs:
 
       - name: Run ShellCheck
         run: make lint
-
-  bash-test:
-    name: Bash integration tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
 
       - name: Run Bash integration tests
         run: make test
@@ -63,4 +53,4 @@ jobs:
 
       - name: Run PowerShell integration tests
         shell: pwsh
-        run: ./tests/upload-to-s3-powershell-test.ps1
+        run: ./tests/upload-to-s3-test.ps1

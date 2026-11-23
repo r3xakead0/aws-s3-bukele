@@ -28,7 +28,7 @@ Una utilidad de línea de comandos multiplataforma para subir archivos comprimid
 ```text
 .
 ├── .github/workflows/ci.yml  # Flujo automático de lint y pruebas
-├── bin/upload-to-s3          # Aplicación de línea de comandos en Bash
+├── bin/upload-to-s3.sh       # Aplicación de línea de comandos en Bash
 ├── bin/upload-to-s3.ps1      # Aplicación de línea de comandos en PowerShell
 ├── tests/                    # Pruebas de integración para Bash y PowerShell
 ├── .editorconfig             # Reglas de formato para editores
@@ -77,7 +77,7 @@ cd aws-s3-bukele
 Sube un archivo con Bash:
 
 ```bash
-./bin/upload-to-s3 \
+./bin/upload-to-s3.sh \
   --bucket archivos-empresa \
   --profile produccion \
   --prefix respaldos \
@@ -129,7 +129,7 @@ La aplicación no carga `.env` implícitamente. Puedes exportarlo en la terminal
 set -a
 source .env
 set +a
-./bin/upload-to-s3 /ruta/a/fotos-2026.zip
+./bin/upload-to-s3.sh /ruta/a/fotos-2026.zip
 ```
 
 También puedes usar el objetivo de Make, que carga `.env` cuando el archivo existe:
@@ -169,7 +169,7 @@ Los valores admitidos son:
 Por ejemplo:
 
 ```bash
-./bin/upload-to-s3 \
+./bin/upload-to-s3.sh \
   --bucket archivos-empresa \
   --storage-class STANDARD_IA \
   /ruta/a/fotos-2026.zip
@@ -191,7 +191,7 @@ Elige la clase según el patrón de acceso, los requisitos de recuperación, la 
 ### Bash
 
 ```text
-Usage: upload-to-s3 [options] <compressed-file>
+Usage: upload-to-s3.sh [options] <compressed-file>
 
 Options:
   -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
@@ -205,7 +205,7 @@ Options:
 Muestra la ayuda vigente directamente desde el ejecutable:
 
 ```bash
-./bin/upload-to-s3 --help
+./bin/upload-to-s3.sh --help
 ```
 
 ### PowerShell
@@ -275,7 +275,7 @@ make test-powershell
 También puedes ejecutarlas directamente desde PowerShell:
 
 ```powershell
-.\tests\upload-to-s3-powershell-test.ps1
+.\tests\upload-to-s3-test.ps1
 ```
 
 Ejecuta PSScriptAnalyzer:
@@ -309,7 +309,7 @@ Indica `--bucket` o define `S3_BUCKET` antes de ejecutar el comando.
 Comprueba la ruta del archivo. Escribe entre comillas las rutas que contengan espacios:
 
 ```bash
-./bin/upload-to-s3 --bucket archivos-empresa "/ruta/a/Mis Fotos.zip"
+./bin/upload-to-s3.sh --bucket archivos-empresa "/ruta/a/Mis Fotos.zip"
 ```
 
 ```powershell
