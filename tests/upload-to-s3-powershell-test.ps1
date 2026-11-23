@@ -20,6 +20,7 @@ $commandStatus = 0
 $environmentNames = @(
     'PATH',
     'MOCK_LOG',
+    'MOCK_PWSH_PATH',
     'MOCK_STATE_DIR',
     'MOCK_IDENTITY_FAIL_ONCE',
     'S3_BUCKET',
@@ -88,57 +89,72 @@ try {
     New-Item -ItemType Directory -Path $mockBinDirectory, $mockStateDirectory -Force | Out-Null
     New-Item -ItemType File -Path $archive, $archiveWithSpaces, $unsupportedFile, $mockLog -Force | Out-Null
 
-    if ($env:OS -eq 'Windows_NT') {
-        $mockAws = @'
-@echo off
-echo %*>>"%MOCK_LOG%"
-
-if "%1"=="sts" if "%2"=="get-caller-identity" (
-    if "%MOCK_IDENTITY_FAIL_ONCE%"=="1" if not exist "%MOCK_STATE_DIR%\identity-failed" (
-        type nul >"%MOCK_STATE_DIR%\identity-failed"
-        exit /b 1
-    )
-    exit /b 0
+    $mockAwsPowerShell = @'
+param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$AwsArguments
 )
 
-if "%1"=="sso" if "%2"=="login" exit /b 0
-if "%1"=="s3" if "%2"=="cp" exit /b 0
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-exit /b 1
-'@
+Add-Content -LiteralPath $env:MOCK_LOG -Value ($AwsArguments -join ' ')
 
-        Set-Content -LiteralPath (Join-Path $mockBinDirectory 'aws.cmd') -Value $mockAws -Encoding Ascii
-    }
-    else {
-        $mockAws = @'
-#!/usr/bin/env bash
-
-set -eu
-
-printf '%s\n' "$*" >>"${MOCK_LOG:?}"
-
-if [[ "${1:-}" == "sts" && "${2:-}" == "get-caller-identity" ]]; then
-    if [[ "${MOCK_IDENTITY_FAIL_ONCE:-0}" == "1" && ! -f "${MOCK_STATE_DIR:?}/identity-failed" ]]; then
-        touch "${MOCK_STATE_DIR}/identity-failed"
+if (
+    $AwsArguments.Count -ge 2 -and
+    $AwsArguments[0] -ceq 'sts' -and
+    $AwsArguments[1] -ceq 'get-caller-identity'
+) {
+    $failureMarker = Join-Path $env:MOCK_STATE_DIR 'identity-failed'
+    if ($env:MOCK_IDENTITY_FAIL_ONCE -eq '1' -and -not (Test-Path -LiteralPath $failureMarker)) {
+        New-Item -ItemType File -Path $failureMarker -Force | Out-Null
         exit 1
-    fi
+    }
 
     exit 0
-fi
+}
 
-if [[ "${1:-}" == "sso" && "${2:-}" == "login" ]]; then
+if ($AwsArguments.Count -ge 2 -and $AwsArguments[0] -ceq 'sso' -and $AwsArguments[1] -ceq 'login') {
     exit 0
-fi
+}
 
-if [[ "${1:-}" == "s3" && "${2:-}" == "cp" ]]; then
+if ($AwsArguments.Count -ge 2 -and $AwsArguments[0] -ceq 's3' -and $AwsArguments[1] -ceq 'cp') {
     exit 0
-fi
+}
 
 exit 1
 '@
 
+    Set-Content `
+        -LiteralPath (Join-Path $mockBinDirectory 'aws-mock.ps1') `
+        -Value $mockAwsPowerShell `
+        -Encoding Ascii
+
+    if ($env:OS -eq 'Windows_NT') {
+        $mockAwsWrapper = @'
+@echo off
+"%MOCK_PWSH_PATH%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0aws-mock.ps1" %*
+exit /b %ERRORLEVEL%
+'@
+
+        Set-Content -LiteralPath (Join-Path $mockBinDirectory 'aws.cmd') -Value $mockAwsWrapper -Encoding Ascii
+    }
+    else {
+        $mockAwsWrapper = @'
+#!/usr/bin/env bash
+
+set -eu
+
+exec "${MOCK_PWSH_PATH:?}" \
+    -NoLogo \
+    -NoProfile \
+    -NonInteractive \
+    -File "$(dirname "$0")/aws-mock.ps1" \
+    "$@"
+'@
+
         $mockAwsPath = Join-Path $mockBinDirectory 'aws'
-        Set-Content -LiteralPath $mockAwsPath -Value $mockAws -Encoding Ascii
+        Set-Content -LiteralPath $mockAwsPath -Value $mockAwsWrapper -Encoding Ascii
         & chmod +x $mockAwsPath
 
         if ($LASTEXITCODE -ne 0) {
@@ -148,6 +164,7 @@ exit 1
 
     $env:PATH = "${mockBinDirectory}$([IO.Path]::PathSeparator)$($env:PATH)"
     $env:MOCK_LOG = $mockLog
+    $env:MOCK_PWSH_PATH = $powerShellExecutable
     $env:MOCK_STATE_DIR = $mockStateDirectory
 
     Invoke-TestCommand -Arguments @('-Help')
