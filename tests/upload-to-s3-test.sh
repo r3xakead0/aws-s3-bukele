@@ -2,9 +2,11 @@
 
 set -Eeuo pipefail
 
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly SCRIPT_UNDER_TEST="${PROJECT_ROOT}/bin/upload-to-s3"
-readonly TEST_TMP_DIR="$(mktemp -d)"
+TEST_TMP_DIR="$(mktemp -d)"
+readonly TEST_TMP_DIR
 readonly MOCK_BIN_DIR="${TEST_TMP_DIR}/bin"
 readonly MOCK_LOG="${TEST_TMP_DIR}/aws.log"
 readonly MOCK_STATE_DIR="${TEST_TMP_DIR}/state"
