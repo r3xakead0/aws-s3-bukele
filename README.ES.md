@@ -4,7 +4,7 @@
 
 # Cargador de archivos comprimidos a AWS S3
 
-[English](README.md) | [Español](README.ES.md)
+[English](README.md) | [Español](README.ES.md) | [Português](README.PT.md)
 
 Una utilidad de línea de comandos multiplataforma para subir archivos comprimidos a Amazon S3, con Bash para Linux y macOS y PowerShell para Windows. Ambas implementaciones validan la entrada, comprueban el perfil de AWS seleccionado, renuevan la sesión de AWS IAM Identity Center (AWS SSO) cuando es necesario y cargan el archivo sin extraerlo.
 
@@ -38,6 +38,7 @@ Una utilidad de línea de comandos multiplataforma para subir archivos comprimid
 ├── Makefile                  # Comandos de desarrollo y ejecución
 ├── README.md                 # Documentación en inglés
 ├── README.ES.md              # Documentación en español
+├── README.PT.md              # Documentación en portugués
 └── LICENSE                   # Licencia MIT
 ```
 

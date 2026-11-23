@@ -4,7 +4,7 @@
 
 # AWS S3 Compressed File Uploader
 
-[English](README.md) | [Español](README.ES.md)
+[English](README.md) | [Español](README.ES.md) | [Português](README.PT.md)
 
 A cross-platform command-line utility for uploading compressed files to Amazon S3, with Bash support for Linux and macOS and PowerShell support for Windows. Both implementations validate the input, check the selected AWS profile, renew an AWS IAM Identity Center (AWS SSO) session when necessary, and upload the archive without extracting it.
 
@@ -38,6 +38,7 @@ A cross-platform command-line utility for uploading compressed files to Amazon S
 ├── Makefile                  # Development and execution commands
 ├── README.md                 # English documentation
 ├── README.ES.md              # Spanish documentation
+├── README.PT.md              # Portuguese documentation
 └── LICENSE                   # MIT license
 ```
 
