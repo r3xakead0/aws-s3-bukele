@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly PROGRAM_NAME="${0##*/}"
+readonly DEFAULT_AWS_PROFILE="default"
+readonly DEFAULT_S3_PREFIX="backups"
+
+bucket="${S3_BUCKET:-}"
+aws_profile="${AWS_PROFILE:-$DEFAULT_AWS_PROFILE}"
+s3_prefix="${S3_PREFIX:-$DEFAULT_S3_PREFIX}"
+archive=""
+
+usage() {
+    cat <<EOF
+Usage: ${PROGRAM_NAME} [options] <compressed-file>
+
+Upload a compressed file to Amazon S3.
+
+Options:
+  -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
+  -p, --profile NAME   AWS CLI profile (default: ${DEFAULT_AWS_PROFILE}).
+      --prefix PATH    Destination prefix (default: ${DEFAULT_S3_PREFIX}).
+  -h, --help           Show this help message.
+
+Supported formats:
+  .zip, .tar.gz, .tgz, .tar.bz2, .tar.xz
+EOF
+}
+
+fail() {
+    printf 'Error: %s\n' "$*" >&2
+    exit 1
+}
+
+require_option_value() {
+    local option="$1"
+    local value="${2:-}"
+
+    [[ -n "$value" ]] || fail "${option} requires a value."
+}
+
+normalize_prefix() {
+    local value="$1"
+
+    while [[ "$value" == /* ]]; do
+        value="${value#/}"
+    done
+
+    while [[ "$value" == */ ]]; do
+        value="${value%/}"
+    done
+
+    printf '%s' "$value"
+}
+
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -b|--bucket)
+                require_option_value "$1" "${2:-}"
+                bucket="$2"
+                shift 2
+                ;;
+            --bucket=*)
+                bucket="${1#*=}"
+                [[ -n "$bucket" ]] || fail "--bucket requires a value."
+                shift
+                ;;
+            -p|--profile)
+                require_option_value "$1" "${2:-}"
+                aws_profile="$2"
+                shift 2
+                ;;
+            --profile=*)
+                aws_profile="${1#*=}"
+                [[ -n "$aws_profile" ]] || fail "--profile requires a value."
+                shift
+                ;;
+            --prefix)
+                require_option_value "$1" "${2:-}"
+                s3_prefix="$2"
+                shift 2
+                ;;
+            --prefix=*)
+                s3_prefix="${1#*=}"
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            --)
+                shift
+                [[ $# -eq 1 ]] || fail "Exactly one compressed file is required."
+                archive="$1"
+                shift
+                ;;
+            -*)
+                fail "Unknown option: $1"
+                ;;
+            *)
+                [[ -z "$archive" ]] || fail "Exactly one compressed file is required."
+                archive="$1"
+                shift
+                ;;
+        esac
+    done
+}
+
+validate_configuration() {
+    [[ -n "$archive" ]] || {
+        usage >&2
+        exit 2
+    }
+
+    [[ -n "$bucket" ]] || fail "S3 bucket is required. Use --bucket or S3_BUCKET."
+    [[ -n "$aws_profile" ]] || fail "AWS profile cannot be empty."
+}
+
+validate_archive() {
+    [[ -f "$archive" ]] || fail "File not found: $archive"
+
+    case "$archive" in
+        *.zip|*.tar.gz|*.tgz|*.tar.bz2|*.tar.xz)
+            ;;
+        *)
+            fail "Unsupported compressed file format."
+            ;;
+    esac
+}
+
+ensure_aws_cli() {
+    command -v aws >/dev/null 2>&1 || fail "AWS CLI is not installed or is not in PATH."
+}
+
+ensure_aws_session() {
+    printf 'Checking AWS session for profile %s...\n' "$aws_profile"
+
+    if aws sts get-caller-identity --profile "$aws_profile" >/dev/null 2>&1; then
+        return
+    fi
+
+    printf 'AWS session is unavailable or expired. Starting SSO login...\n'
+    aws sso login --profile "$aws_profile"
+    aws sts get-caller-identity --profile "$aws_profile" >/dev/null
+}
+
+build_destination() {
+    local file_name="${archive##*/}"
+    local normalized_prefix
+
+    normalized_prefix="$(normalize_prefix "$s3_prefix")"
+
+    if [[ -n "$normalized_prefix" ]]; then
+        printf 's3://%s/%s/%s' "$bucket" "$normalized_prefix" "$file_name"
+    else
+        printf 's3://%s/%s' "$bucket" "$file_name"
+    fi
+}
+
+upload_archive() {
+    local destination
+
+    destination="$(build_destination)"
+
+    printf 'Uploading: %s\n' "$archive"
+    printf 'Destination: %s\n' "$destination"
+
+    aws s3 cp "$archive" "$destination" --profile "$aws_profile"
+
+    printf 'Upload completed successfully.\n'
+}
+
+main() {
+    parse_arguments "$@"
+    validate_configuration
+    validate_archive
+    ensure_aws_cli
+    ensure_aws_session
+    upload_archive
+}
+
+main "$@"

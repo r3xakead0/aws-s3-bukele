@@ -6,91 +6,140 @@
 
 [English](README.md) | [Español](README.ES.md)
 
-Una pequeña utilidad en Bash que sube un archivo comprimido a una ubicación predefinida de Amazon S3. Antes de cargarlo, valida el archivo y AWS CLI, comprueba el perfil de AWS seleccionado e inicia sesión con AWS IAM Identity Center (AWS SSO) cuando la sesión actual no es válida.
+Una utilidad de línea de comandos en Bash para subir archivos comprimidos a Amazon S3. Valida la entrada, comprueba el perfil de AWS seleccionado, renueva la sesión de AWS IAM Identity Center (AWS SSO) cuando es necesario y carga el archivo sin extraerlo.
 
 ## Características
 
-- Valida que se haya indicado un archivo y que este exista.
-- Acepta archivos `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` y `.tar.xz`.
-- Comprueba que AWS CLI esté instalado.
-- Utiliza un perfil de AWS CLI y un prefijo de S3 configurables.
+- Admite archivos `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` y `.tar.xz`.
+- Recibe la configuración mediante opciones de línea de comandos o variables de entorno.
+- Valida el archivo, la configuración del bucket y la instalación de AWS CLI.
 - Comprueba la identidad actual de AWS antes de realizar la carga.
-- Abre el flujo de inicio de sesión de AWS SSO cuando se necesita autenticación.
-- Se detiene inmediatamente si falla un comando.
+- Inicia el acceso con AWS SSO cuando la sesión no está disponible o ha caducado.
+- Normaliza las barras iniciales y finales del prefijo de destino.
+- Incluye pruebas de integración sin dependencias y validación automática con ShellCheck.
 
 > [!NOTE]
-> El archivo comprimido se sube tal como está. El script no extrae su contenido.
+> El archivo comprimido se sube tal como está. Su contenido no se extrae.
+
+## Estructura del proyecto
+
+```text
+.
+├── .github/workflows/ci.yml  # Flujo automático de lint y pruebas
+├── bin/upload-to-s3          # Aplicación de línea de comandos
+├── tests/                    # Pruebas de integración con AWS CLI simulado
+├── .editorconfig             # Reglas de formato para editores
+├── .env.example              # Plantilla de configuración
+├── .gitattributes            # Finales de línea consistentes en Git
+├── .gitignore                # Archivos locales excluidos de Git
+├── Makefile                  # Comandos de desarrollo y ejecución
+├── README.md                 # Documentación en inglés
+├── README.ES.md              # Documentación en español
+└── LICENSE                   # Licencia MIT
+```
 
 ## Requisitos
 
-- Bash.
-- [AWS CLI](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html) instalado y disponible en `PATH`.
-- Un perfil de AWS CLI configurado para la cuenta de destino. Se recomienda AWS CLI v2 para la [autenticación con AWS SSO](https://docs.aws.amazon.com/es_es/cli/latest/userguide/cli-configure-sso.html).
-- Un bucket de S3 existente.
-- Permiso para cargar objetos en la ubicación de S3 configurada.
+### Ejecución
 
-Para configurar un perfil con SSO, ejecuta primero:
+- Bash.
+- [AWS CLI v2](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html) disponible en `PATH`.
+- Un bucket de S3 existente.
+- Un perfil de AWS CLI con acceso al destino.
+- Permiso `s3:PutObject` para el prefijo de S3 configurado.
+
+Para un perfil con SSO, configura primero AWS CLI:
 
 ```bash
 aws configure sso --profile mi-perfil
 ```
 
-## Configuración
+### Desarrollo
 
-Edita los valores de configuración al comienzo de [`upload-to-s3.sh`](upload-to-s3.sh):
+- `make` para ejecutar las tareas del proyecto.
+- [ShellCheck](https://www.shellcheck.net/) para ejecutar el linter.
 
-```bash
-BUCKET="bucket-name"
-AWS_PROFILE="default"
-S3_PREFIX="backups"
-```
+## Inicio rápido
 
-| Variable | Propósito | Ejemplo |
-| --- | --- | --- |
-| `BUCKET` | Nombre del bucket de S3 de destino | `archivos-empresa` |
-| `AWS_PROFILE` | Perfil de AWS CLI utilizado para la autenticación | `produccion` |
-| `S3_PREFIX` | Ruta de destino dentro del bucket | `respaldos` |
-
-La ubicación resultante sigue este patrón:
-
-```text
-s3://<BUCKET>/<S3_PREFIX>/<nombre-del-archivo>
-```
-
-Por ejemplo, `fotos-2026.zip`, con el bucket `archivos-empresa` y el prefijo `respaldos`, se sube a:
-
-```text
-s3://archivos-empresa/respaldos/fotos-2026.zip
-```
-
-## Uso
-
-1. Clona el repositorio y entra en su directorio:
+1. Clona el repositorio:
 
    ```bash
    git clone https://github.com/r3xakead0/aws-s3-bukele.git
    cd aws-s3-bukele
    ```
 
-2. Actualiza los valores de configuración en `upload-to-s3.sh`.
-
-3. Da permisos de ejecución al script:
+2. Sube un archivo indicando la configuración explícitamente:
 
    ```bash
-   chmod +x upload-to-s3.sh
+   ./bin/upload-to-s3 \
+     --bucket archivos-empresa \
+     --profile produccion \
+     --prefix respaldos \
+     /ruta/a/fotos-2026.zip
    ```
 
-4. Sube un archivo comprimido:
+El objeto resultante queda almacenado en:
 
-   ```bash
-   ./upload-to-s3.sh /ruta/a/fotos-2026.zip
-   ```
+```text
+s3://archivos-empresa/respaldos/fotos-2026.zip
+```
 
-Si la sesión de AWS configurada ha caducado, el script ejecuta `aws sso login` y espera a que termine la autenticación antes de continuar.
+## Configuración
+
+Las opciones de línea de comandos tienen prioridad sobre las variables de entorno.
+
+| Opción CLI | Variable de entorno | Valor predeterminado | Propósito |
+| --- | --- | --- | --- |
+| `--bucket`, `-b` | `S3_BUCKET` | Obligatorio | Bucket de S3 de destino |
+| `--profile`, `-p` | `AWS_PROFILE` | `default` | Perfil de AWS CLI |
+| `--prefix` | `S3_PREFIX` | `backups` | Prefijo de destino dentro del bucket |
+
+### Uso de un archivo de entorno
+
+Copia la plantilla y actualiza sus valores:
+
+```bash
+cp .env.example .env
+```
+
+La aplicación no carga `.env` implícitamente. Puedes exportarlo en la terminal actual:
+
+```bash
+set -a
+source .env
+set +a
+./bin/upload-to-s3 /ruta/a/fotos-2026.zip
+```
+
+También puedes usar el objetivo de Make, que carga `.env` cuando el archivo existe:
+
+```bash
+make upload FILE=/ruta/a/fotos-2026.zip
+```
+
+El archivo `.env` está ignorado por Git para evitar agregar por accidente la configuración local.
+
+## Referencia de la CLI
+
+```text
+Usage: upload-to-s3 [options] <compressed-file>
+
+Options:
+  -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
+  -p, --profile NAME   AWS CLI profile (default: default).
+      --prefix PATH    Destination prefix (default: backups).
+  -h, --help           Show the help message.
+```
+
+Muestra la ayuda vigente directamente desde el ejecutable:
+
+```bash
+./bin/upload-to-s3 --help
+```
 
 ## Permiso de S3 necesario
 
-La identidad de AWS utilizada por el perfil seleccionado necesita `s3:PutObject` para el prefijo de destino. Una política de identidad mínima puede ser la siguiente, después de sustituir el bucket y el prefijo de ejemplo:
+La identidad de AWS seleccionada necesita `s3:PutObject` para el prefijo de destino. Sustituye el bucket y el prefijo de ejemplo antes de usar esta política de identidad:
 
 ```json
 {
@@ -109,35 +158,60 @@ Revisa y prueba la política antes de asociarla a un rol o conjunto de permisos.
 
 ## Cómo funciona
 
-El script realiza los siguientes pasos:
+La aplicación:
 
-1. Comprueba que se haya indicado un archivo.
-2. Comprueba que el archivo exista.
-3. Comprueba que el comando `aws` esté disponible.
-4. Rechaza extensiones de archivos no admitidas.
-5. Ejecuta `aws sts get-caller-identity` con el perfil configurado.
-6. Ejecuta `aws sso login` si falla la comprobación de identidad.
-7. Sube el archivo con `aws s3 cp`.
+1. Procesa las opciones de línea de comandos y las variables de entorno.
+2. Valida el bucket, el archivo y su extensión.
+3. Confirma que AWS CLI esté disponible.
+4. Ejecuta `aws sts get-caller-identity` con el perfil seleccionado.
+5. Ejecuta `aws sso login` y vuelve a comprobar la identidad si falla la primera validación.
+6. Construye la URI de destino y sube el archivo con `aws s3 cp`.
 
-Como el script utiliza `set -euo pipefail`, termina si falla un comando, se usa una variable no definida o falla una tubería de comandos.
+El script utiliza `set -Eeuo pipefail`, por lo que un fallo inesperado de comando, variable o tubería detiene la ejecución.
+
+## Desarrollo
+
+Ejecuta las pruebas de integración con AWS CLI simulado:
+
+```bash
+make test
+```
+
+Ejecuta ShellCheck:
+
+```bash
+make lint
+```
+
+Ejecuta todas las comprobaciones locales:
+
+```bash
+make check
+```
+
+Las mismas comprobaciones se ejecutan automáticamente para los `push` y `pull requests` mediante GitHub Actions. Las pruebas nunca se conectan a AWS.
 
 ## Solución de problemas
 
-### `Error: File not found`
+### `S3 bucket is required`
 
-Comprueba la ruta del archivo. Las rutas con espacios deben escribirse entre comillas:
+Indica `--bucket` o define `S3_BUCKET` antes de ejecutar el comando.
+
+### `File not found`
+
+Comprueba la ruta del archivo. Escribe entre comillas las rutas que contengan espacios:
 
 ```bash
-./upload-to-s3.sh "/ruta/a/Mis Fotos.zip"
+./bin/upload-to-s3 --bucket archivos-empresa "/ruta/a/Mis Fotos.zip"
 ```
 
-### `Error: Unsupported compressed file format`
+### `Unsupported compressed file format`
 
-Utiliza una de las extensiones admitidas: `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` o `.tar.xz`.
+Utiliza `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` o `.tar.xz`.
 
 ### Falla el inicio de sesión con SSO
 
-Confirma que `AWS_PROFILE` coincida con un perfil configurado para SSO en `~/.aws/config` y pruébalo directamente:
+Confirma que el perfil seleccionado esté configurado para AWS SSO y pruébalo directamente:
 
 ```bash
 aws sso login --profile mi-perfil
@@ -146,14 +220,13 @@ aws sts get-caller-identity --profile mi-perfil
 
 ### Se deniega la carga
 
-Verifica el nombre del bucket, la cuenta de AWS, el perfil seleccionado y el permiso `s3:PutObject` para el prefijo configurado. Comprueba también la política del bucket y cualquier requisito de cifrado.
+Verifica el bucket, la cuenta de AWS, el perfil seleccionado, el permiso `s3:PutObject`, la política del bucket y los requisitos de cifrado.
 
 ## Limitaciones
 
-- La configuración está almacenada en el script y no se recibe mediante opciones de línea de comandos.
-- Solo se carga un archivo por ejecución.
-- El nombre del objeto de destino es el nombre base del archivo comprimido.
-- Un objeto existente con la misma clave de S3 puede sobrescribirse si el versionado o las políticas del bucket no lo impiden.
+- Se carga un archivo por ejecución.
+- El objeto de destino utiliza el nombre base del archivo comprimido.
+- Un objeto existente con la misma clave puede sobrescribirse, salvo que el versionado o las políticas del bucket lo impidan.
 - La reautenticación automática presupone un perfil configurado para AWS SSO.
 
 ## Licencia
