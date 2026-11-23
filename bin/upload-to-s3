@@ -5,10 +5,12 @@ set -Eeuo pipefail
 readonly PROGRAM_NAME="${0##*/}"
 readonly DEFAULT_AWS_PROFILE="default"
 readonly DEFAULT_S3_PREFIX="backups"
+readonly DEFAULT_STORAGE_CLASS="STANDARD"
 
 bucket="${S3_BUCKET:-}"
 aws_profile="${AWS_PROFILE:-$DEFAULT_AWS_PROFILE}"
 s3_prefix="${S3_PREFIX:-$DEFAULT_S3_PREFIX}"
+storage_class="${S3_STORAGE_CLASS:-$DEFAULT_STORAGE_CLASS}"
 archive=""
 
 usage() {
@@ -21,6 +23,8 @@ Options:
   -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
   -p, --profile NAME   AWS CLI profile (default: ${DEFAULT_AWS_PROFILE}).
       --prefix PATH    Destination prefix (default: ${DEFAULT_S3_PREFIX}).
+  -s, --storage-class CLASS
+                        S3 storage class (default: ${DEFAULT_STORAGE_CLASS}).
   -h, --help           Show this help message.
 
 Supported formats:
@@ -86,6 +90,16 @@ parse_arguments() {
                 s3_prefix="${1#*=}"
                 shift
                 ;;
+            -s|--storage-class)
+                require_option_value "$1" "${2:-}"
+                storage_class="$2"
+                shift 2
+                ;;
+            --storage-class=*)
+                storage_class="${1#*=}"
+                [[ -n "$storage_class" ]] || fail "--storage-class requires a value."
+                shift
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -116,6 +130,16 @@ validate_configuration() {
 
     [[ -n "$bucket" ]] || fail "S3 bucket is required. Use --bucket or S3_BUCKET."
     [[ -n "$aws_profile" ]] || fail "AWS profile cannot be empty."
+}
+
+validate_storage_class() {
+    case "$storage_class" in
+        STANDARD|REDUCED_REDUNDANCY|STANDARD_IA|ONEZONE_IA|INTELLIGENT_TIERING|GLACIER|DEEP_ARCHIVE|GLACIER_IR)
+            ;;
+        *)
+            fail "Unsupported S3 storage class: ${storage_class}."
+            ;;
+    esac
 }
 
 validate_archive() {
@@ -166,8 +190,11 @@ upload_archive() {
 
     printf 'Uploading: %s\n' "$archive"
     printf 'Destination: %s\n' "$destination"
+    printf 'Storage class: %s\n' "$storage_class"
 
-    aws s3 cp "$archive" "$destination" --profile "$aws_profile"
+    aws s3 cp "$archive" "$destination" \
+        --storage-class "$storage_class" \
+        --profile "$aws_profile"
 
     printf 'Upload completed successfully.\n'
 }
@@ -175,6 +202,7 @@ upload_archive() {
 main() {
     parse_arguments "$@"
     validate_configuration
+    validate_storage_class
     validate_archive
     ensure_aws_cli
     ensure_aws_session

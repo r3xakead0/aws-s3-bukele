@@ -1,4 +1,5 @@
 name: CI
+description: Continuous integration workflow for the repository
 
 on:
   push:

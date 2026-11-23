@@ -116,6 +116,27 @@ run_command env \
 assert_status 1
 assert_output_contains "S3 bucket is required"
 
+run_command env \
+    PATH="${MOCK_BIN_DIR}:/usr/bin:/bin" \
+    S3_BUCKET="test-bucket" \
+    S3_STORAGE_CLASS="INVALID_CLASS" \
+    "$SCRIPT_UNDER_TEST" "${TEST_TMP_DIR}/archive.zip"
+assert_status 1
+assert_output_contains "Unsupported S3 storage class: INVALID_CLASS"
+
+: >"$MOCK_LOG"
+run_command env \
+    PATH="${MOCK_BIN_DIR}:/usr/bin:/bin" \
+    MOCK_LOG="$MOCK_LOG" \
+    MOCK_STATE_DIR="$MOCK_STATE_DIR" \
+    "$SCRIPT_UNDER_TEST" \
+    --bucket "test-bucket" \
+    --profile "test-profile" \
+    "${TEST_TMP_DIR}/archive.zip"
+assert_status 0
+assert_output_contains "Storage class: STANDARD"
+assert_log_contains "s3 cp ${TEST_TMP_DIR}/archive.zip s3://test-bucket/backups/archive.zip --storage-class STANDARD --profile test-profile"
+
 : >"$MOCK_LOG"
 run_command env \
     PATH="${MOCK_BIN_DIR}:/usr/bin:/bin" \
@@ -125,11 +146,13 @@ run_command env \
     --bucket "test-bucket" \
     --profile "test-profile" \
     --prefix "/releases/" \
+    --storage-class "STANDARD_IA" \
     "${TEST_TMP_DIR}/archive.zip"
 assert_status 0
 assert_output_contains "s3://test-bucket/releases/archive.zip"
+assert_output_contains "Storage class: STANDARD_IA"
 assert_log_contains "sts get-caller-identity --profile test-profile"
-assert_log_contains "s3 cp ${TEST_TMP_DIR}/archive.zip s3://test-bucket/releases/archive.zip --profile test-profile"
+assert_log_contains "s3 cp ${TEST_TMP_DIR}/archive.zip s3://test-bucket/releases/archive.zip --storage-class STANDARD_IA --profile test-profile"
 
 : >"$MOCK_LOG"
 rm -f "${MOCK_STATE_DIR}/identity-failed"
@@ -141,9 +164,12 @@ run_command env \
     S3_BUCKET="test-bucket" \
     AWS_PROFILE="test-profile" \
     S3_PREFIX="backups" \
+    S3_STORAGE_CLASS="GLACIER_IR" \
     "$SCRIPT_UNDER_TEST" "${TEST_TMP_DIR}/archive.zip"
 assert_status 0
 assert_output_contains "Starting SSO login"
+assert_output_contains "Storage class: GLACIER_IR"
 assert_log_contains "sso login --profile test-profile"
+assert_log_contains "s3 cp ${TEST_TMP_DIR}/archive.zip s3://test-bucket/backups/archive.zip --storage-class GLACIER_IR --profile test-profile"
 
 printf 'PASS: %s integration tests completed successfully.\n' "$tests_run"

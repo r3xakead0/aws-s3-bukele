@@ -12,6 +12,7 @@ A focused Bash command-line utility for uploading compressed files to Amazon S3.
 
 - Supports `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2`, and `.tar.xz` files.
 - Accepts configuration through command-line options or environment variables.
+- Supports an optional S3 storage class, using `STANDARD` by default.
 - Validates the archive, bucket configuration, and AWS CLI installation.
 - Checks the current AWS identity before uploading.
 - Starts an AWS SSO login flow when the session is unavailable or expired.
@@ -84,6 +85,8 @@ The resulting object is stored at:
 s3://company-archives/backups/photos-2026.zip
 ```
 
+Because no storage class was specified, the object uses `STANDARD`.
+
 ## Configuration
 
 Command-line options take precedence over environment variables.
@@ -93,6 +96,7 @@ Command-line options take precedence over environment variables.
 | `--bucket`, `-b` | `S3_BUCKET` | Required | Destination S3 bucket |
 | `--profile`, `-p` | `AWS_PROFILE` | `default` | AWS CLI profile |
 | `--prefix` | `S3_PREFIX` | `backups` | Destination prefix inside the bucket |
+| `--storage-class`, `-s` | `S3_STORAGE_CLASS` | `STANDARD` | S3 storage class for the uploaded object |
 
 ### Using an environment file
 
@@ -119,6 +123,32 @@ make upload FILE=/path/to/photos-2026.zip
 
 The `.env` file is ignored by Git so local configuration is not committed accidentally.
 
+### Storage classes
+
+The storage class is optional. When neither `--storage-class` nor `S3_STORAGE_CLASS` is provided, the application explicitly uploads the object using `STANDARD`.
+
+Supported values are:
+
+- `STANDARD`
+- `REDUCED_REDUNDANCY`
+- `STANDARD_IA`
+- `ONEZONE_IA`
+- `INTELLIGENT_TIERING`
+- `GLACIER`
+- `DEEP_ARCHIVE`
+- `GLACIER_IR`
+
+For example:
+
+```bash
+./bin/upload-to-s3 \
+  --bucket company-archives \
+  --storage-class STANDARD_IA \
+  /path/to/photos-2026.zip
+```
+
+Choose a class according to the access pattern, retrieval requirements, minimum storage duration, and cost of the object. See the [Amazon S3 storage class guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html) for details.
+
 ## CLI reference
 
 ```text
@@ -128,6 +158,8 @@ Options:
   -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
   -p, --profile NAME   AWS CLI profile (default: default).
       --prefix PATH    Destination prefix (default: backups).
+  -s, --storage-class CLASS
+                        S3 storage class (default: STANDARD).
   -h, --help           Show the help message.
 ```
 
@@ -161,11 +193,11 @@ Review and test the policy before attaching it to a role or permission set.
 The application:
 
 1. Parses command-line options and environment variables.
-2. Validates the bucket, input file, and supported extension.
+2. Validates the bucket, storage class, input file, and supported extension.
 3. Confirms that the AWS CLI is available.
 4. Calls `aws sts get-caller-identity` with the selected profile.
 5. Runs `aws sso login` and verifies the identity again if the first check fails.
-6. Builds the destination URI and uploads the archive with `aws s3 cp`.
+6. Builds the destination URI and uploads the archive with `aws s3 cp` and the selected storage class.
 
 The script uses `set -Eeuo pipefail` so unexpected command, variable, and pipeline failures stop execution.
 
@@ -208,6 +240,10 @@ Check the archive path. Quote paths that contain spaces:
 ### `Unsupported compressed file format`
 
 Use `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2`, or `.tar.xz`.
+
+### `Unsupported S3 storage class`
+
+Use one of the values listed in [Storage classes](#storage-classes). Values are case-sensitive.
 
 ### SSO login fails
 

@@ -12,6 +12,7 @@ Una utilidad de línea de comandos en Bash para subir archivos comprimidos a Ama
 
 - Admite archivos `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` y `.tar.xz`.
 - Recibe la configuración mediante opciones de línea de comandos o variables de entorno.
+- Permite elegir opcionalmente la clase de almacenamiento de S3 y utiliza `STANDARD` de forma predeterminada.
 - Valida el archivo, la configuración del bucket y la instalación de AWS CLI.
 - Comprueba la identidad actual de AWS antes de realizar la carga.
 - Inicia el acceso con AWS SSO cuando la sesión no está disponible o ha caducado.
@@ -84,6 +85,8 @@ El objeto resultante queda almacenado en:
 s3://archivos-empresa/respaldos/fotos-2026.zip
 ```
 
+Como no se indicó una clase de almacenamiento, el objeto utiliza `STANDARD`.
+
 ## Configuración
 
 Las opciones de línea de comandos tienen prioridad sobre las variables de entorno.
@@ -93,6 +96,7 @@ Las opciones de línea de comandos tienen prioridad sobre las variables de entor
 | `--bucket`, `-b` | `S3_BUCKET` | Obligatorio | Bucket de S3 de destino |
 | `--profile`, `-p` | `AWS_PROFILE` | `default` | Perfil de AWS CLI |
 | `--prefix` | `S3_PREFIX` | `backups` | Prefijo de destino dentro del bucket |
+| `--storage-class`, `-s` | `S3_STORAGE_CLASS` | `STANDARD` | Clase de almacenamiento del objeto cargado |
 
 ### Uso de un archivo de entorno
 
@@ -119,6 +123,32 @@ make upload FILE=/ruta/a/fotos-2026.zip
 
 El archivo `.env` está ignorado por Git para evitar agregar por accidente la configuración local.
 
+### Clases de almacenamiento
+
+La clase de almacenamiento es opcional. Cuando no se proporciona `--storage-class` ni `S3_STORAGE_CLASS`, la aplicación carga explícitamente el objeto usando `STANDARD`.
+
+Los valores admitidos son:
+
+- `STANDARD`
+- `REDUCED_REDUNDANCY`
+- `STANDARD_IA`
+- `ONEZONE_IA`
+- `INTELLIGENT_TIERING`
+- `GLACIER`
+- `DEEP_ARCHIVE`
+- `GLACIER_IR`
+
+Por ejemplo:
+
+```bash
+./bin/upload-to-s3 \
+  --bucket archivos-empresa \
+  --storage-class STANDARD_IA \
+  /ruta/a/fotos-2026.zip
+```
+
+Elige la clase según el patrón de acceso, los requisitos de recuperación, la duración mínima de almacenamiento y el costo del objeto. Consulta la [guía de clases de almacenamiento de Amazon S3](https://docs.aws.amazon.com/es_es/AmazonS3/latest/userguide/storage-class-intro.html) para obtener más información.
+
 ## Referencia de la CLI
 
 ```text
@@ -128,6 +158,8 @@ Options:
   -b, --bucket NAME    Destination S3 bucket (or S3_BUCKET).
   -p, --profile NAME   AWS CLI profile (default: default).
       --prefix PATH    Destination prefix (default: backups).
+  -s, --storage-class CLASS
+                        S3 storage class (default: STANDARD).
   -h, --help           Show the help message.
 ```
 
@@ -161,11 +193,11 @@ Revisa y prueba la política antes de asociarla a un rol o conjunto de permisos.
 La aplicación:
 
 1. Procesa las opciones de línea de comandos y las variables de entorno.
-2. Valida el bucket, el archivo y su extensión.
+2. Valida el bucket, la clase de almacenamiento, el archivo y su extensión.
 3. Confirma que AWS CLI esté disponible.
 4. Ejecuta `aws sts get-caller-identity` con el perfil seleccionado.
 5. Ejecuta `aws sso login` y vuelve a comprobar la identidad si falla la primera validación.
-6. Construye la URI de destino y sube el archivo con `aws s3 cp`.
+6. Construye la URI de destino y sube el archivo con `aws s3 cp` y la clase seleccionada.
 
 El script utiliza `set -Eeuo pipefail`, por lo que un fallo inesperado de comando, variable o tubería detiene la ejecución.
 
@@ -208,6 +240,10 @@ Comprueba la ruta del archivo. Escribe entre comillas las rutas que contengan es
 ### `Unsupported compressed file format`
 
 Utiliza `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` o `.tar.xz`.
+
+### `Unsupported S3 storage class`
+
+Utiliza uno de los valores de [Clases de almacenamiento](#clases-de-almacenamiento). Los valores distinguen entre mayúsculas y minúsculas.
 
 ### Falla el inicio de sesión con SSO
 
