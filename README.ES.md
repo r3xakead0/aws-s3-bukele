@@ -6,18 +6,19 @@
 
 [English](README.md) | [Español](README.ES.md)
 
-Una utilidad de línea de comandos en Bash para subir archivos comprimidos a Amazon S3. Valida la entrada, comprueba el perfil de AWS seleccionado, renueva la sesión de AWS IAM Identity Center (AWS SSO) cuando es necesario y carga el archivo sin extraerlo.
+Una utilidad de línea de comandos multiplataforma para subir archivos comprimidos a Amazon S3, con Bash para Linux y macOS y PowerShell para Windows. Ambas implementaciones validan la entrada, comprueban el perfil de AWS seleccionado, renuevan la sesión de AWS IAM Identity Center (AWS SSO) cuando es necesario y cargan el archivo sin extraerlo.
 
 ## Características
 
 - Admite archivos `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` y `.tar.xz`.
+- Funciona en Linux y macOS con Bash y en Windows con PowerShell.
 - Recibe la configuración mediante opciones de línea de comandos o variables de entorno.
 - Permite elegir opcionalmente la clase de almacenamiento de S3 y utiliza `STANDARD` de forma predeterminada.
 - Valida el archivo, la configuración del bucket y la instalación de AWS CLI.
 - Comprueba la identidad actual de AWS antes de realizar la carga.
 - Inicia el acceso con AWS SSO cuando la sesión no está disponible o ha caducado.
 - Normaliza las barras iniciales y finales del prefijo de destino.
-- Incluye pruebas de integración sin dependencias y validación automática con ShellCheck.
+- Incluye pruebas de integración sin dependencias, validación con ShellCheck y validación con PSScriptAnalyzer.
 
 > [!NOTE]
 > El archivo comprimido se sube tal como está. Su contenido no se extrae.
@@ -27,8 +28,9 @@ Una utilidad de línea de comandos en Bash para subir archivos comprimidos a Ama
 ```text
 .
 ├── .github/workflows/ci.yml  # Flujo automático de lint y pruebas
-├── bin/upload-to-s3          # Aplicación de línea de comandos
-├── tests/                    # Pruebas de integración con AWS CLI simulado
+├── bin/upload-to-s3          # Aplicación de línea de comandos en Bash
+├── bin/upload-to-s3.ps1      # Aplicación de línea de comandos en PowerShell
+├── tests/                    # Pruebas de integración para Bash y PowerShell
 ├── .editorconfig             # Reglas de formato para editores
 ├── .env.example              # Plantilla de configuración
 ├── .gitattributes            # Finales de línea consistentes en Git
@@ -43,7 +45,7 @@ Una utilidad de línea de comandos en Bash para subir archivos comprimidos a Ama
 
 ### Ejecución
 
-- Bash.
+- Bash en Linux o macOS, o PowerShell 5.1 o posterior en Windows.
 - [AWS CLI v2](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html) disponible en `PATH`.
 - Un bucket de S3 existente.
 - Un perfil de AWS CLI con acceso al destino.
@@ -59,25 +61,40 @@ aws configure sso --profile mi-perfil
 
 - `make` para ejecutar las tareas del proyecto.
 - [ShellCheck](https://www.shellcheck.net/) para ejecutar el linter.
+- [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) para validar PowerShell localmente.
 
 ## Inicio rápido
 
-1. Clona el repositorio:
+Clona el repositorio:
 
-   ```bash
-   git clone https://github.com/r3xakead0/aws-s3-bukele.git
-   cd aws-s3-bukele
-   ```
+```bash
+git clone https://github.com/r3xakead0/aws-s3-bukele.git
+cd aws-s3-bukele
+```
 
-2. Sube un archivo indicando la configuración explícitamente:
+### Linux y macOS
 
-   ```bash
-   ./bin/upload-to-s3 \
-     --bucket archivos-empresa \
-     --profile produccion \
-     --prefix respaldos \
-     /ruta/a/fotos-2026.zip
-   ```
+Sube un archivo con Bash:
+
+```bash
+./bin/upload-to-s3 \
+  --bucket archivos-empresa \
+  --profile produccion \
+  --prefix respaldos \
+  /ruta/a/fotos-2026.zip
+```
+
+### Windows
+
+Sube el mismo archivo con PowerShell:
+
+```powershell
+.\bin\upload-to-s3.ps1 `
+  -Bucket archivos-empresa `
+  -Profile produccion `
+  -Prefix respaldos `
+  -Archive C:\Respaldos\fotos-2026.zip
+```
 
 El objeto resultante queda almacenado en:
 
@@ -91,12 +108,12 @@ Como no se indicó una clase de almacenamiento, el objeto utiliza `STANDARD`.
 
 Las opciones de línea de comandos tienen prioridad sobre las variables de entorno.
 
-| Opción CLI | Variable de entorno | Valor predeterminado | Propósito |
+| Opción Bash / PowerShell | Variable de entorno | Valor predeterminado | Propósito |
 | --- | --- | --- | --- |
-| `--bucket`, `-b` | `S3_BUCKET` | Obligatorio | Bucket de S3 de destino |
-| `--profile`, `-p` | `AWS_PROFILE` | `default` | Perfil de AWS CLI |
-| `--prefix` | `S3_PREFIX` | `backups` | Prefijo de destino dentro del bucket |
-| `--storage-class`, `-s` | `S3_STORAGE_CLASS` | `STANDARD` | Clase de almacenamiento del objeto cargado |
+| `--bucket`, `-b` / `-Bucket` | `S3_BUCKET` | Obligatorio | Bucket de S3 de destino |
+| `--profile`, `-p` / `-Profile` | `AWS_PROFILE` | `default` | Perfil de AWS CLI |
+| `--prefix` / `-Prefix` | `S3_PREFIX` | `backups` | Prefijo de destino dentro del bucket |
+| `--storage-class`, `-s` / `-StorageClass` | `S3_STORAGE_CLASS` | `STANDARD` | Clase de almacenamiento del objeto cargado |
 
 ### Uso de un archivo de entorno
 
@@ -123,6 +140,17 @@ make upload FILE=/ruta/a/fotos-2026.zip
 
 El archivo `.env` está ignorado por Git para evitar agregar por accidente la configuración local.
 
+En PowerShell, define la misma configuración como variables de entorno del proceso:
+
+```powershell
+$env:S3_BUCKET = 'archivos-empresa'
+$env:AWS_PROFILE = 'produccion'
+$env:S3_PREFIX = 'respaldos'
+$env:S3_STORAGE_CLASS = 'STANDARD'
+
+.\bin\upload-to-s3.ps1 -Archive C:\Respaldos\fotos-2026.zip
+```
+
 ### Clases de almacenamiento
 
 La clase de almacenamiento es opcional. Cuando no se proporciona `--storage-class` ni `S3_STORAGE_CLASS`, la aplicación carga explícitamente el objeto usando `STANDARD`.
@@ -147,9 +175,20 @@ Por ejemplo:
   /ruta/a/fotos-2026.zip
 ```
 
+PowerShell utiliza el parámetro equivalente `-StorageClass`:
+
+```powershell
+.\bin\upload-to-s3.ps1 `
+  -Bucket archivos-empresa `
+  -StorageClass STANDARD_IA `
+  -Archive C:\Respaldos\fotos-2026.zip
+```
+
 Elige la clase según el patrón de acceso, los requisitos de recuperación, la duración mínima de almacenamiento y el costo del objeto. Consulta la [guía de clases de almacenamiento de Amazon S3](https://docs.aws.amazon.com/es_es/AmazonS3/latest/userguide/storage-class-intro.html) para obtener más información.
 
 ## Referencia de la CLI
+
+### Bash
 
 ```text
 Usage: upload-to-s3 [options] <compressed-file>
@@ -167,6 +206,24 @@ Muestra la ayuda vigente directamente desde el ejecutable:
 
 ```bash
 ./bin/upload-to-s3 --help
+```
+
+### PowerShell
+
+```text
+Usage: upload-to-s3.ps1 [options] -Archive <compressed-file>
+
+Options:
+  -Bucket NAME          Destination S3 bucket (or S3_BUCKET).
+  -Profile NAME         AWS CLI profile (default: default).
+  -Prefix PATH          Destination prefix (default: backups).
+  -StorageClass CLASS   S3 storage class (default: STANDARD).
+  -Archive FILE         Compressed file to upload.
+  -Help                 Show the help message.
+```
+
+```powershell
+.\bin\upload-to-s3.ps1 -Help
 ```
 
 ## Permiso de S3 necesario
@@ -190,16 +247,16 @@ Revisa y prueba la política antes de asociarla a un rol o conjunto de permisos.
 
 ## Cómo funciona
 
-La aplicación:
+Ambas aplicaciones:
 
-1. Procesa las opciones de línea de comandos y las variables de entorno.
-2. Valida el bucket, la clase de almacenamiento, el archivo y su extensión.
-3. Confirma que AWS CLI esté disponible.
-4. Ejecuta `aws sts get-caller-identity` con el perfil seleccionado.
-5. Ejecuta `aws sso login` y vuelve a comprobar la identidad si falla la primera validación.
-6. Construye la URI de destino y sube el archivo con `aws s3 cp` y la clase seleccionada.
+1. Procesan las opciones de línea de comandos y las variables de entorno.
+2. Validan el bucket, la clase de almacenamiento, el archivo y su extensión.
+3. Confirman que AWS CLI esté disponible.
+4. Ejecutan `aws sts get-caller-identity` con el perfil seleccionado.
+5. Ejecutan `aws sso login` y vuelven a comprobar la identidad si falla la primera validación.
+6. Construyen la URI de destino y suben el archivo con `aws s3 cp` y la clase seleccionada.
 
-El script utiliza `set -Eeuo pipefail`, por lo que un fallo inesperado de comando, variable o tubería detiene la ejecución.
+El script Bash utiliza `set -Eeuo pipefail`; el script PowerShell utiliza modo estricto y errores terminantes. Los fallos inesperados detienen ambas implementaciones.
 
 ## Desarrollo
 
@@ -209,19 +266,37 @@ Ejecuta las pruebas de integración con AWS CLI simulado:
 make test
 ```
 
+Ejecuta las pruebas de PowerShell en un sistema con PowerShell 7:
+
+```bash
+make test-powershell
+```
+
+También puedes ejecutarlas directamente desde PowerShell:
+
+```powershell
+.\tests\upload-to-s3-powershell-test.ps1
+```
+
+Ejecuta PSScriptAnalyzer:
+
+```powershell
+Invoke-ScriptAnalyzer -Path .\bin\upload-to-s3.ps1 -Severity Warning,Error
+```
+
 Ejecuta ShellCheck:
 
 ```bash
 make lint
 ```
 
-Ejecuta todas las comprobaciones locales:
+Ejecuta todas las comprobaciones de Bash:
 
 ```bash
 make check
 ```
 
-Las mismas comprobaciones se ejecutan automáticamente para los `push` y `pull requests` mediante GitHub Actions. Las pruebas nunca se conectan a AWS.
+GitHub Actions ejecuta el lint y las pruebas de Bash en Ubuntu, y el lint y las pruebas de PowerShell en Windows. Ninguna suite de pruebas se conecta a AWS.
 
 ## Solución de problemas
 
@@ -235,6 +310,10 @@ Comprueba la ruta del archivo. Escribe entre comillas las rutas que contengan es
 
 ```bash
 ./bin/upload-to-s3 --bucket archivos-empresa "/ruta/a/Mis Fotos.zip"
+```
+
+```powershell
+.\bin\upload-to-s3.ps1 -Bucket archivos-empresa -Archive 'C:\Respaldos\Mis Fotos.zip'
 ```
 
 ### `Unsupported compressed file format`

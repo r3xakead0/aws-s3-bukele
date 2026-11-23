@@ -1,5 +1,6 @@
+# Continuous integration workflow for Bash and PowerShell.
 name: CI
-description: Continuous integration workflow for the repository
+description: Run linting and integration tests for Bash and PowerShell scripts.
 
 on:
   push:
@@ -9,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  shell-quality:
-    name: Shell quality
+  bash-lint:
+    name: Bash lint
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -23,5 +24,43 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes shellcheck
 
-      - name: Run checks
-        run: make check
+      - name: Run ShellCheck
+        run: make lint
+
+  bash-test:
+    name: Bash integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run Bash integration tests
+        run: make test
+
+  powershell:
+    name: PowerShell lint and tests
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -Repository PSGallery
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = @(Invoke-ScriptAnalyzer -Path ./bin/upload-to-s3.ps1 -Severity Warning,Error)
+          $results | Format-Table -AutoSize
+          if ($results.Count -gt 0) {
+            throw "PSScriptAnalyzer found $($results.Count) issue(s)."
+          }
+
+      - name: Run PowerShell integration tests
+        shell: pwsh
+        run: ./tests/upload-to-s3-powershell-test.ps1
